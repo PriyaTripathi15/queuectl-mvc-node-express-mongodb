@@ -1,0 +1,14 @@
+[
+  {
+    "command": "echo 'Job 1 - Hello World'"
+  },
+  {
+    "command": "sleep 2"
+  },
+  {
+    "command": "echo 'Job 3 - Testing Queue'"
+  },
+  {
+    "command": "invalidcommand" 
+  }
+]
