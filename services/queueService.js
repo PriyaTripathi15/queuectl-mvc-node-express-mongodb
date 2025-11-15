@@ -3,8 +3,7 @@ const config = require('../config');
 
 function backoffDelay(attempts) {
   const base = config.retryBase || 2;
-  const seconds = Math.pow(base, attempts);
-  return seconds * 1000;
+  return Math.pow(base, attempts) * 1000;
 }
 
 async function enqueue(jobObj) {
@@ -13,7 +12,7 @@ async function enqueue(jobObj) {
     command: jobObj.command,
     max_retries: jobObj.max_retries || config.defaultMaxRetries,
     state: jobObj.state || 'pending',
-    available_at: jobObj.available_at ? new Date(jobObj.available_at) : new Date(),
+    available_at: jobObj.available_at ? new Date(jobObj.available_at) : new Date()
   });
   await job.save();
   return job;
@@ -41,6 +40,7 @@ async function markFailed(job, errMsg) {
   job.last_error = String(errMsg).slice(0, 1000);
   job.updated_at = new Date();
   job.worker = undefined;
+
   if (job.attempts > job.max_retries) {
     job.state = 'dead';
   } else {
@@ -49,28 +49,6 @@ async function markFailed(job, errMsg) {
     job.state = 'pending';
   }
   await job.save();
-}
-
-async function moveToDead(jobId) {
-  const job = await Job.findOne({ id: jobId });
-  if (!job) throw new Error('Job not found');
-  job.state = 'dead';
-  job.updated_at = new Date();
-  await job.save();
-  return job;
-}
-
-async function listByState(state) {
-  return Job.find(state ? { state } : {}).sort({ created_at: -1 }).limit(100).lean();
-}
-
-async function stats() {
-  const agg = await Job.aggregate([
-    { $group: { _id: '$state', count: { $sum: 1 } } }
-  ]);
-  const result = {};
-  agg.forEach(r => (result[r._id] = r.count));
-  return result;
 }
 
 async function retryDead(jobId) {
@@ -85,4 +63,15 @@ async function retryDead(jobId) {
   return job;
 }
 
-module.exports = { enqueue, fetchNextJob, markComplete, markFailed, moveToDead, listByState, stats, retryDead };
+async function listByState(state) {
+  return Job.find(state ? { state } : {}).sort({ created_at: -1 }).limit(100).lean();
+}
+
+async function stats() {
+  const agg = await Job.aggregate([{ $group: { _id: '$state', count: { $sum: 1 } } }]);
+  const result = {};
+  agg.forEach(r => (result[r._id] = r.count));
+  return result;
+}
+
+module.exports = { enqueue, fetchNextJob, markComplete, markFailed, retryDead, listByState, stats };

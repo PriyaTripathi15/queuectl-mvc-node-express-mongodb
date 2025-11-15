@@ -8,6 +8,7 @@ const uuid = require('uuid');
 
 const argv = yargs(hideBin(process.argv)).option('count', { type: 'number', default: 1 }).argv;
 const WORKER_COUNT = argv.count || 1;
+const POLL_MS = parseInt(config.pollMs || '500', 10);
 
 let shuttingDown = false;
 
@@ -18,29 +19,35 @@ async function connect() {
 
 async function workerLoop(workerId) {
   console.log(`[worker:${workerId}] started`);
+
   while (!shuttingDown) {
     try {
       const job = await queue.fetchNextJob(workerId);
       if (!job) {
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, POLL_MS));
         continue;
       }
 
-      console.log(`[worker:${workerId}] picked job ${job.id} -> ${job.command}`);
+      const startTs = Date.now();
+      console.log(new Date().toISOString(), `[worker:${workerId}] picked job ${job.id} -> ${job.command}`);
 
       const execPromise = new Promise((resolve) => {
-        const child = exec(job.command, { shell: true }, (error, stdout, stderr) => {
+        exec(job.command, { shell: true, windowsHide: true, maxBuffer: 1024*1024 }, (error, stdout, stderr) => {
           resolve({ error, stdout, stderr });
         });
       });
 
       const { error, stdout, stderr } = await execPromise;
+      const durationMs = Date.now() - startTs;
+
+      if (stdout && stdout.trim()) console.log(`[worker:${workerId}] stdout (${job.id}):\n${stdout.trim().slice(0,2000)}`);
+      if (stderr && stderr.trim()) console.warn(`[worker:${workerId}] stderr (${job.id}):\n${stderr.trim().slice(0,2000)}`);
 
       if (!error) {
-        console.log(`[worker:${workerId}] job ${job.id} succeeded`);
+        console.log(new Date().toISOString(), `[worker:${workerId}] job ${job.id} succeeded in ${durationMs}ms`);
         await queue.markComplete(job);
       } else {
-        console.warn(`[worker:${workerId}] job ${job.id} failed: ${error && (error.code || error.message)}`);
+        console.warn(new Date().toISOString(), `[worker:${workerId}] job ${job.id} failed in ${durationMs}ms: ${error && (error.code || error.message)}`);
         await queue.markFailed(job, (error && error.message) || String(error));
       }
 
