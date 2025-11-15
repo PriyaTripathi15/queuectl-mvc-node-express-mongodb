@@ -1,6 +1,5 @@
 [
-  { "command": "echo Hello" },
-  { "command": "sleep 2" },
-  { "command": "/bin/false", "max_retries": 2 }
+ 
+  { "command": "/bin/false", "max_retries": 1 }
 ]
 
