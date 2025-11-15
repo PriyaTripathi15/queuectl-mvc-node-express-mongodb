@@ -1,137 +1,179 @@
-# queuectl
+# QueueCTL
 
-Lightweight CLI-based job queue (Node.js) — project for background job processing with retries, exponential backoff and a Dead Letter Queue (DLQ).
+**QueueCTL** is a lightweight CLI-based job queue system built with **Node.js + Express + MongoDB**, supporting:
 
-## Quick setup (Windows / PowerShell)
+- Multiple workers  
+- Job retries with exponential backoff  
+- Dead Letter Queue (DLQ) for permanently failed jobs  
+- Persistent storage  
+- CLI and optional web dashboard for interactive control  
 
-Prerequisites:
-- Node.js (16+)
-- MongoDB running locally or a MongoDB URI in `.env`
+---
 
-1. Install dependencies:
+## Table of Contents
+
+- [Quick Setup](#quick-setup)  
+- [Job Lifecycle](#job-lifecycle)  
+- [CLI Commands](#cli-commands)  
+- [API Endpoints](#api-endpoints)  
+- [Frontend Dashboard](#frontend-dashboard)  
+- [Configuration](#configuration)  
+- [Testing](#testing)  
+- [Architecture Overview](#architecture-overview)  
+- [Example API Responses](#example-api-responses)  
+- [Assumptions & Trade-offs](#assumptions--trade-offs)  
+- [Evaluation & Notes](#evaluation--notes)  
+
+---
+
+## Quick Setup (Windows / PowerShell)
+
+### Prerequisites
+
+- Node.js (v16+)
+- MongoDB (local or Atlas URI)
+- Optional: `jq` CLI for JSON formatting (useful for scripting)
+
+### Steps
+
+1. Install dependencies
+
 ```powershell
 npm install
 ```
 
-2. Start MongoDB (if installed as service):
+2. Start MongoDB (if installed as a Windows service)
+
 ```powershell
 Start-Service -Name mongod
 ```
 
-3. Start the API server (in one terminal):
+3. Start the API server (in one terminal)
+
 ```powershell
 node server.js
 ```
 
-4. Enqueue a job (safe: use a JSON file):
-Create `job.json`:
-```json
-{ "id": "job1", "command": "echo Hello from job1" }
-```
-Then:
+4. Start worker(s) (in another terminal)
+
+Foreground (ctrl+C to stop):
 ```powershell
+node worker.js           # Start 1 worker
+node worker.js --count 3 # Start 3 workers
+```
+
+Detached/background (writes PID to `worker.pid`):
+```powershell
+node cli.js worker start --count 2 --detach
+# Stop detached worker
+node cli.js worker stop
+```
+
+5. Enqueue jobs
+
+Inline (PowerShell single-quote works well):
+```powershell
+node cli.js enqueue '{"id":"job1","command":"echo Hello World"}'
+```
+
+From a JSON file (recommended to avoid quoting issues):
+```powershell
+# job.json
+{ "id": "job2", "command": "echo Hello2" }
+
+# enqueue
 node cli.js enqueue job.json
 ```
 
-Or enqueue inline with a here-string:
-```powershell
-$payload = @'
-{"id":"job2","command":"echo Hello2"}
-'@
-node cli.js enqueue $payload
-```
+6. Check status and list jobs
 
-5. Start a worker (in another terminal):
-```powershell
-node worker.js
-```
-To start multiple workers:
-```powershell
-node worker.js --count 3
-```
-Stop a worker gracefully: press `Ctrl+C` in the worker terminal.
-
-6. Check status and list jobs:
 ```powershell
 node cli.js status
 node cli.js list
 ```
 
-7. DLQ operations:
+7. DLQ operations
+
 ```powershell
 node cli.js dlq list
 node cli.js dlq retry <jobId>
 ```
 
-8. Change configuration (retry/backoff):
+8. Change configuration (retry/backoff)
+
 ```powershell
 node cli.js config set --retryBase 2 --defaultMaxRetries 3
 ```
+## Job Lifecycle
 
-## Files of interest
-- `server.js` — Express API and MongoDB connection
-- `cli.js` — CLI commands (enqueue, worker start, status, list, dlq, config)
-- `worker.js` — Worker loop to pick and run jobs
-- `services/queueService.js` — Core queue operations and retry logic
-- `models/Job.js` — Mongoose model for jobs
+| State | Description |
+|---|---|
+| pending | Waiting to be picked up by a worker |
+| processing | Currently being executed |
+| completed | Successfully executed |
+| failed | Failed, but retryable |
+| dead | Permanently failed (moved to DLQ) |
 
-## Testing flow (PowerShell)
-There is a sample PowerShell test script at `scripts/test_flow.ps1` that enqueues a success job and a failing job, starts a background worker, waits for retries, then prints status and DLQ.
+## CLI Commands
 
-## Architecture notes
-- Jobs stored in MongoDB (persistent)
-- Workers atomically claim jobs using `findOneAndUpdate`
-- Exponential backoff: `delay = retryBase ^ attempts` seconds (configurable)
-- Jobs exceeding `max_retries` move to `dead` state (DLQ)
+| Category | Command Example | Description |
+|---|---|---|
+| Enqueue | `node cli.js enqueue '{"id":"job1","command":"sleep 2"}'` | Add a new job to the queue |
+| Workers | `node cli.js worker start --count 3` | Start one or more workers (foreground) |
+|  | `node cli.js worker start --count 2 --detach` | Start worker(s) detached (background) and write PID to `worker.pid` |
+|  | `node cli.js worker stop` | Stop detached worker (reads `worker.pid`) |
+| Status | `node cli.js status` | Show summary of job states |
+| List Jobs | `node cli.js list --state pending` | List jobs by state |
+| DLQ | `node cli.js dlq list` / `node cli.js dlq retry <jobId>` | View or retry DLQ jobs |
+| Config | `node cli.js config set --retryBase 2 --defaultMaxRetries 3` | Manage configuration (retry, backoff) |
 
-## Assumptions & trade-offs
-- Uses MongoDB for persistence (simple and reliable for this task)
-- Worker stop is implemented via SIGINT (Ctrl+C). A PID manager can be added if background service management is required.
+## API Endpoints
 
-If you want, I can add automated tests or a `worker stop` helper that manages PIDs.
-# queuectl — MVC Node + Express + MongoDB
+| Method | Endpoint | Body / Query | Description |
+|---|---|---|---|
+| POST | `/enqueue` | `{ command, id?, max_retries? }` | Add job to queue |
+| GET | `/list?state=pending` | - | List jobs by state |
+| GET | `/status` | - | Job statistics |
+| GET | `/dlq` | - | List Dead Letter Queue jobs |
+| POST | `/dlq/retry/:id` | - | Retry job from DLQ |
+| POST | `/config` | `{ retryBase, defaultMaxRetries }` | Update retry/backoff config |
 
-A minimal MVC-style Node.js + Express implementation of a CLI-based job queue system with:
-- multiple workers
-- exponential backoff retries
-- Dead Letter Queue (DLQ)
-- persistent storage using MongoDB
-- simple HTTP management API and CLI wrapper
+## Frontend Dashboard
 
-## Setup
+Built with React + Vite + Tailwind CSS. The frontend is optional and provides an interactive dashboard with:
 
-1. Clone or unzip the project.
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Copy `.env.example` to `.env` and edit if needed.
-4. Start MongoDB (local `mongod` or provide Atlas connection string in `.env`).
-5. Start API:
-   ```
-   npm run start
-   ```
-6. Start worker(s):
-   ```
-   node worker.js --count 2
-   ```
-7. Enqueue jobs:
-   ```
-   node cli.js enqueue '{"command":"echo hello"}'
-   ```
+- Enqueue job
+- View jobs by state
+- View DLQ jobs
+- Retry DLQ jobs
+- Auto-refresh on enqueue/retry
 
-## API
-- `POST /enqueue` — enqueue a job (JSON body: `{ "command": "...", "id": "...", "max_retries": 3 }`)
-- `GET /list?state=pending` — list jobs by state
-- `GET /status` — stats
-- `GET /dlq` — list dead jobs
-- `POST /dlq/retry/:id` — retry a dead job
+Create a `.env` inside the `frontend` folder (Vite uses `VITE_` prefixed variables):
 
-## Notes
-- Retry backoff is `delay = base ^ attempts` seconds (configurable via `RETRY_BASE`).
-- Jobs move to `dead` after exhausting `max_retries`.
-- Persistence is via MongoDB.
+```text
+VITE_API_URL=http://localhost:3000
+```
+
+## Configuration
+
+- Exponential backoff: `delay = retryBase ^ attempts` seconds
+- Max retries: configurable per job (`max_retries`) or via global default
+- Persistence: MongoDB (configured via `.env` `MONGODB_URI` or default `mongodb://localhost:27017/queuectl`)
 
 ## Testing
-Run `npm run test-flow` (ensure API is running and `jq` is installed) and observe worker logs in another terminal.
 
+There is a PowerShell test flow at `scripts/test_flow.ps1` that enqueues a success and a failing job, starts a background worker, waits for retries, then prints status and DLQ contents.
+
+Run (ensure server is running first):
+
+```powershell
+.\scripts\test_flow.ps1
+```
+
+## Architecture Overview
+
+- **Backend**: Node.js + Express + MongoDB + Mongoose (persistent jobs)
+- **Worker**: Atomically claims jobs using `findOneAndUpdate`, executes the `command`, and uses exponential backoff for retries
+- **DLQ**: Jobs exceeding `max_retries` move to `dead` state and are listed under DLQ
+- **Frontend**: React + Vite + Tailwind CSS dashboard for interactive control
+*** End Patch
