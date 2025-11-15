@@ -64,16 +64,16 @@ node worker.js --count 3 # Start 3 workers
 
 Detached/background (writes PID to `worker.pid`):
 ```powershell
-node cli.js worker start --count 2 --detach
+queuectl enqueue  worker start --count 2 --detach
 # Stop detached worker
-node cli.js worker stop
+queuectl worker stop
 ```
 
 5. Enqueue jobs
 
 Inline (PowerShell single-quote works well):
 ```powershell
-node cli.js enqueue '{"id":"job1","command":"echo Hello World"}'
+queuectl enqueue '{"id":"job1","command":"echo Hello World"}'
 ```
 
 From a JSON file (recommended to avoid quoting issues):
@@ -82,27 +82,27 @@ From a JSON file (recommended to avoid quoting issues):
 { "id": "job2", "command": "echo Hello2" }
 
 # enqueue
-node cli.js enqueue job.json
+queuectl enqueue job.json
 ```
 
 6. Check status and list jobs
 
 ```powershell
-node cli.js status
-node cli.js list
+queuectl status
+queuectl list
 ```
 
 7. DLQ operations
 
 ```powershell
-node cli.js dlq list
-node cli.js dlq retry <jobId>
+queuectl dlq list
+queuectl dlq retry <jobId>
 ```
 
 8. Change configuration (retry/backoff)
 
 ```powershell
-node cli.js config set --retryBase 2 --defaultMaxRetries 3
+queuectl config set --retryBase 2 --defaultMaxRetries 3
 ```
 ## Job Lifecycle
 
@@ -118,14 +118,14 @@ node cli.js config set --retryBase 2 --defaultMaxRetries 3
 
 | Category | Command Example | Description |
 |---|---|---|
-| Enqueue | `node cli.js enqueue '{"id":"job1","command":"sleep 2"}'` | Add a new job to the queue |
-| Workers | `node cli.js worker start --count 3` | Start one or more workers (foreground) |
-|  | `node cli.js worker start --count 2 --detach` | Start worker(s) detached (background) and write PID to `worker.pid` |
-|  | `node cli.js worker stop` | Stop detached worker (reads `worker.pid`) |
-| Status | `node cli.js status` | Show summary of job states |
-| List Jobs | `node cli.js list --state pending` | List jobs by state |
-| DLQ | `node cli.js dlq list` / `node cli.js dlq retry <jobId>` | View or retry DLQ jobs |
-| Config | `node cli.js config set --retryBase 2 --defaultMaxRetries 3` | Manage configuration (retry, backoff) |
+| Enqueue | `queuectl enqueue '{"id":"job1","command":"sleep 2"}'` | Add a new job to the queue |
+| Workers | `queuectl worker start --count 3` | Start one or more workers (foreground) |
+|  | `queuectl worker start --count 2 --detach` | Start worker(s) detached (background) and write PID to `worker.pid` |
+|  | `queuectl worker stop` | Stop detached worker (reads `worker.pid`) |
+| Status | `queuectl status` | Show summary of job states |
+| List Jobs | `queuectl list --state pending` | List jobs by state |
+| DLQ | `queuectls dlq list` / `queuectl dlq retry <jobId>` | View or retry DLQ jobs |
+| Config | `queuectl config set --retryBase 2 --defaultMaxRetries 3` | Manage configuration (retry, backoff) |
 
 ## API Endpoints
 
@@ -162,12 +162,12 @@ VITE_API_URL=http://localhost:3000
 
 ## Testing
 
-There is a PowerShell test flow at `scripts/test_flow.ps1` that enqueues a success and a failing job, starts a background worker, waits for retries, then prints status and DLQ contents.
+There is a PowerShell test flow at `scripts/test_flow.sh` that enqueues a success and a failing job, starts a background worker, waits for retries, then prints status and DLQ contents.
 
 Run (ensure server is running first):
 
 ```powershell
-.\scripts\test_flow.ps1
+.\scripts\test_flow.sh
 ```
 
 ## Architecture Overview
