@@ -22,7 +22,7 @@ Table of contents
 - Testing
 - Architecture Overview
 - Example API Responses
-- Assumptions & Trade-offs
+
 
 
 ---
@@ -349,19 +349,7 @@ Data model (high-level)
 
 ---
 
-## Assumptions & Trade-offs
 
-Assumptions:
-- Jobs are simple shell commands (string) and safe to execute in your environment.
-- The system runs in a trusted environment. No sandboxing is provided.
-- Workers execute commands synchronously and rely on exit codes to determine success/failure.
-- Job uniqueness can be optionally provided via `id` but duplicates are not automatically deduplicated unless enforced.
-
-Trade-offs:
-- Simplicity over full enterprise features: no job scheduling calendar, no per-job resource limits, no built-in security sandbox.
-- Shell command execution gives great flexibility but also increases security risk if untrusted commands are enqueued.
-- Using MongoDB as a queue backend is simple and reliable for small-to-medium scale, but at very high throughput a dedicated queue (RabbitMQ, Kafka, Redis Streams) may be more suitable.
-- DLQ is simple: jobs marked `dead`, retriable via API/CLI. No advanced DLQ routing implemented.
 
 ---
 
