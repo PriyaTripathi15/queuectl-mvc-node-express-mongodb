@@ -231,12 +231,13 @@ $ queuectl list --state pending
 Example API JSON response (simulated)
 ```json
 {
-  "id": "job1",
-  "command": "echo Hello",
-  "state": "completed",
-  "attempts": 1,
+  "id": "unique-job-id",
+  "command": "echo 'Hello World'",
+  "state": "pending",
+  "attempts": 0,
   "max_retries": 3,
-  "last_error": null
+  "created_at": "2025-11-04T10:30:00Z",
+  "updated_at": "2025-11-04T10:30:00Z"
 }
 ```
 
