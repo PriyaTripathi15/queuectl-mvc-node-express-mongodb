@@ -22,8 +22,8 @@ Table of contents
 - Testing
 - Architecture Overview
 - Example API Responses
-
-
+- Assumptions & Trade-offs
+- Evaluation & Notes
 
 ---
 
@@ -32,7 +32,7 @@ Table of contents
 ### Prerequisites
 - Node.js v16+ (recommended latest LTS)
 - MongoDB (local or Atlas URI)
-
+- Optional: `jq` CLI for JSON formatting (useful in scripting)
 
 Clone repository (if you have a remote repo):
 ```bash
@@ -231,13 +231,12 @@ $ queuectl list --state pending
 Example API JSON response (simulated)
 ```json
 {
-  "id": "unique-job-id",
-  "command": "echo 'Hello World'",
-  "state": "pending",
-  "attempts": 0,
+  "id": "job1",
+  "command": "echo Hello",
+  "state": "completed",
+  "attempts": 1,
   "max_retries": 3,
-  "created_at": "2025-11-04T10:30:00Z",
-  "updated_at": "2025-11-04T10:30:00Z"
+  "last_error": null
 }
 ```
 
@@ -349,10 +348,37 @@ Data model (high-level)
 
 ---
 
+## Assumptions & Trade-offs
 
+Assumptions:
+- Jobs are simple shell commands (string) and safe to execute in your environment.
+- The system runs in a trusted environment. No sandboxing is provided.
+- Workers execute commands synchronously and rely on exit codes to determine success/failure.
+- Job uniqueness can be optionally provided via `id` but duplicates are not automatically deduplicated unless enforced.
+
+Trade-offs:
+- Simplicity over full enterprise features: no job scheduling calendar, no per-job resource limits, no built-in security sandbox.
+- Shell command execution gives great flexibility but also increases security risk if untrusted commands are enqueued.
+- Using MongoDB as a queue backend is simple and reliable for small-to-medium scale, but at very high throughput a dedicated queue (RabbitMQ, Kafka, Redis Streams) may be more suitable.
+- DLQ is simple: jobs marked `dead`, retriable via API/CLI. No advanced DLQ routing implemented.
 
 ---
 
+## Evaluation & Notes
 
+- Recommended for development and small-scale production workloads.
+- To harden for production:
+  - Add authentication & authorization (API & dashboard)
+  - Add command validation and sandboxing (e.g., containerized runner)
+  - Add observability (metrics, structured logs)
+  - Add rate-limiting and per-worker concurrency controls
 
+---
 
+If you want, I can:
+- Commit this README.md into your repo and open a PR (provide repo details),
+- Generate example scripts referenced (e.g., scripts/test_flow.sh),
+- Create sample job schema file or seed data,
+- Or produce the worker/systemd service unit and Windows service script examples for background workers.
+
+Tell me what you'd like next.
