@@ -23,7 +23,7 @@ Table of contents
 - Architecture Overview
 - Example API Responses
 - Assumptions & Trade-offs
-- Evaluation & Notes
+
 
 ---
 
@@ -365,13 +365,6 @@ Trade-offs:
 
 ---
 
-## Evaluation & Notes
 
-- Recommended for development and small-scale production workloads.
-- To harden for production:
-  - Add authentication & authorization (API & dashboard)
-  - Add command validation and sandboxing (e.g., containerized runner)
-  - Add observability (metrics, structured logs)
-  - Add rate-limiting and per-worker concurrency controls
 
----
+
